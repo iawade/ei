@@ -15,5 +15,6 @@ reference_data/
 **/*sif
 workflow/envs/cache/
 workflow/envs/SMARCA4_related/
+.idea/
 !config/config_example.yaml
 !config/sample_config.yaml
