@@ -1,6 +1,7 @@
+import argparse
 from bioservices import BioMart
 
-def get_gene_coordinates(gene_symbol, assembly='GRCh38'):
+def get_gene_coordinates(gene_symbol, output_file, assembly='GRCh38'):
     server = BioMart()
 
     # Set the dataset and attributes
@@ -26,21 +27,27 @@ def get_gene_coordinates(gene_symbol, assembly='GRCh38'):
     # Print the entire result for investigation
     #print(result)
 
-    # Process the result and print in BED format
-    for line in result.split('\n'):
-        if line:
-            row = line.split('\t')
-            gene_id = row[0]  
-            chromosome = row[1]
-            exon_start = row[2]
-            exon_end = row[3]
-            utr5_start = row[4]
-            utr5_end = row[5]
+    # Process the result and write to the output file in BED format
+    with open(output_file, 'w') as output:
+        for line in result.split('\n'):
+            if line:
+                row = line.split('\t')
+                gene_id = row[0]  
+                chromosome = row[1]
+                exon_start = row[2]
+                exon_end = row[3]
+                utr5_start = row[4]
+                utr5_end = row[5]
 
-        print(f"chr{chromosome}\t{exon_start}\t{exon_end}")
+                output.write(f"chr{chromosome}\t{exon_start}\t{exon_end}\n")
         #print(f"chr{chromosome}\t{utr5_start}\t{utr5_end}\t{gene_id}\t5_UTR")
 
 if __name__ == "__main__":
-    gene_symbol = 'SMARCA4'
-    get_gene_coordinates(gene_symbol)
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='Retrieve gene coordinates from BioMart.')
+    parser.add_argument('--gene', required=True, help='HGNC gene symbol')
+    parser.add_argument('--output', required=True, help='Output BED file')
+    args = parser.parse_args()
 
+    # Run the function with provided arguments
+    get_gene_coordinates(args.gene, args.output)
