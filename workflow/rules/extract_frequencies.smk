@@ -35,10 +35,23 @@ rule bedtools_process:
     shell:
         "bash ../../scripts/bedtools_process_exons.sh {input} {params.chromosome_sizes} {output}"
 
+rule identify_pvcf_chunk:
+    input:
+        "{gene}_processed_exons.bed"
+    output:
+        "{gene}_pvcf_chunk_name.txt"
+    params:
+        gene=config["gene"],
+        pvcf_blocks=config["pvcf_blocks"]
+    shell:
+        """
+        python ../../scripts/UKB_exome_file_cross-ref.py {input} {output} {params.pvcf_blocks}
+        """
+
 # Catch all due to snakemake quirks re wildcards in target rules and input/output
 rule final_rule:
     input:
-        "{gene}_processed_exons.bed".format(gene=config["gene"])
+        "{gene}_pvcf_chunk_name.txt".format(gene=config["gene"])
     output:
         "pipeline_complete.txt"
     shell:
