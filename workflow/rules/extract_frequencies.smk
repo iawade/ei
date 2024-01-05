@@ -48,10 +48,26 @@ rule identify_pvcf_chunk:
         python ../../scripts/UKB_exome_file_cross-ref.py {input} {output} {params.pvcf_blocks}
         """
 
+rule extract_variants_and_download:
+    input:
+        "{gene}_processed_exons.bed",
+        "{gene}_pvcf_chunk_name.txt"
+    output:
+        "{gene}_ukb_variants.vcf.gz",
+        "{gene}_ukb_variants.vcf.gz.tbi"
+    params:
+        gene=config["gene"],
+        ukb_bed_path=config["ukb_bed_path"]
+    shell:
+        """
+        sbatch --output="test_slurm/slurm-%x-%A_%a.out" --time=5-00:00:00 ../../scripts/extract_regions_from_ukb.sh {input[0]} {params.ukb_bed_path} {input[1]} {output[0]}
+        """
+
 # Catch all due to snakemake quirks re wildcards in target rules and input/output
 rule final_rule:
     input:
-        "{gene}_pvcf_chunk_name.txt".format(gene=config["gene"])
+        "{gene}_ukb_variants.vcf.gz".format(gene=config["gene"]),
+        "{gene}_ukb_variants.vcf.gz.tbi".format(gene=config["gene"])
     output:
         "pipeline_complete.txt"
     shell:

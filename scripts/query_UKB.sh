@@ -2,7 +2,7 @@
 
 INPUT_BED="$1"
 PVCF_CHUNK="$2"
-OUTPUT="test.vcf.gz"
+OUTPUT="$3"
 
 UKB_EXOME_DIR="/Bulk/Exome sequences/Population level exome OQFE variants, pVCF format - final release"
 
