@@ -48,6 +48,7 @@ rule identify_pvcf_chunk:
         python ../../scripts/UKB_exome_file_cross-ref.py {input} {output} {params.pvcf_blocks}
         """
 
+# TODO : I'm not sure if this script could handle if pvcf_chunk > 1; Check and Fix
 rule extract_variants_and_download:
     input:
         "{gene}_processed_exons.bed",
@@ -63,11 +64,71 @@ rule extract_variants_and_download:
         sbatch --output="test_slurm/slurm-%x-%A_%a.out" --time=5-00:00:00 ../../scripts/extract_regions_from_ukb.sh {input[0]} {params.ukb_bed_path} {input[1]} {output[0]}
         """
 
+rule filter_participants:
+    input:
+        "{gene}_ukb_variants.vcf.gz",
+    output:
+        "{gene}_ukb_variants_paricipants_filtered.vcf.gz",
+        "{gene}_ukb_variants_paricipants_filtered.vcf.gz.tbi",
+    params:
+        gene=config["gene"],
+        participants_list=config["participants_list"]
+    shell:
+        """
+        sbatch --output="test_slurm/slurm-%x-%A_%a.out" --time=5-00:00:00 --cpus-per-task=2 \
+        ../../scripts/filter_participants.sh {input} {params.participants_list} {output[0]}
+        """
+
+rule normalisation:
+    input:
+        "{gene}_ukb_variants_paricipants_filtered.vcf.gz",
+    output:
+        "{gene}_ukb_variants_paricipants_filtered_normalised.vcf.gz",
+        "{gene}_ukb_variants_paricipants_filtered_normalised.vcf.gz.tbi",
+    params:
+        gene=config["gene"],
+        reference_genome_path=config["reference_genome_path"]
+    shell:
+        """
+       sbatch --output="test_slurm/slurm-%x-%A_%a.out" --time=5-00:00:00 --cpus-per-task=2 \
+       ../../scripts/variant_normalisation_no_split.sh {input} {params.reference_genome_path} {output[0]}
+       """
+
+# Annotation
+rule annotation:
+    input:
+        "{gene}_ukb_variants_paricipants_filtered_normalised.vcf.gz",
+    output:
+        "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz",
+        "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz.tbi",
+    params:
+        project=config["project"],
+        sbatch_job_name="--job-name=saige_prep_annotation_vep",
+        sbatch_params=config["sbatch_low_cpu"],
+        assembly=config["assembly"],
+        fasta_reference=config["reference_genome_path"],
+        vep_cache_version=config["vep_cache_version"],
+        revel=config["revel"],
+        clinvar=config["clinvar"],
+        loftee=config["loftee"],
+        cadd=config["cadd"]
+    shell:
+        """
+        sbatch {params.sbatch_job_name} {params.sbatch_params} \
+         ../../scripts/annotation_vep.sh {input} {output[0]} "/data/scratch/DGE/DUDGE/PREDIGEN/iwade/WES_pipeline/workflow/envs/ensembl_vep_loftee_v110.sif" \
+         {params.assembly} {params.fasta_reference} "/data/scratch/DGE/DUDGE/PREDIGEN/iwade/WES_pipeline/reference_data" {params.vep_cache_version} "/data/scratch/DGE/DUDGE/PREDIGEN/iwade/WES_pipeline/reference_data" {params.revel} \
+         {params.clinvar} {params.loftee} {params.cadd}
+        """
+
+
 # Catch all due to snakemake quirks re wildcards in target rules and input/output
 rule final_rule:
     input:
-        "{gene}_ukb_variants.vcf.gz".format(gene=config["gene"]),
-        "{gene}_ukb_variants.vcf.gz.tbi".format(gene=config["gene"])
+        "{gene}_ukb_variants.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_paricipants_filtered.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_paricipants_filtered_normalised.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz".format(gene=config["gene"]),
+        "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz.tbi".format(gene=config["gene"]),
     output:
         "pipeline_complete.txt"
     shell:
