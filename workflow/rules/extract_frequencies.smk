@@ -10,8 +10,6 @@ from typing import List
 # with open(config["dataset_name_files"]) as f1:
 #     dataset_name_files = [line.strip() for line in f1]
 
-# TODO : bcftools as a container? Doesn't work with conda - not urgent as can install bcftools from source code
-
 # Target Rule for Completion of Pipeline
 rule all:
     input:
