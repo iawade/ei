@@ -118,7 +118,7 @@ rule annotation:
         "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes_annotated.vcf.gz.csi",
     params:
         sbatch_job_name="--job-name=annotation_vep",
-        sbatch_params=config["sbatch_medium_cpu"],
+        sbatch_params=config["sbatch_low_cpu"],
         assembly=config["assembly"],
         fasta_reference=config["reference_genome_path"],
         vep_cache_version=config["vep_cache_version"],

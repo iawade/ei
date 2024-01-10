@@ -33,7 +33,7 @@ singularity exec  -B/data:/data "$VEP_SIF"  vep \
     --af_gnomad \
     --mane \
     --vcf \
-    --pick \
+    --pick_allele \
     --fork 1 \
     --buffer_size 500 \
     --dir_plugins "$DIR_PLUGINS" \
@@ -48,9 +48,8 @@ singularity exec  -B/data:/data "$VEP_SIF"  vep \
 ## But some kind of error where container won't put samtools into path unless forking is used
 ### --fork 1 - solid workaround
 
-# Remove duplicated lines arising from splitting multiallelic lines and left-aligning indels
-bcftools annotate --set-id '%CHROM\_%POS\_%REF\_%ALT' "${OUTPUT//.vcf.gz/.vcf}" | \
- bcftools norm -d all -Oz -o "$OUTPUT"
+# Fix names of vars
+bcftools annotate --set-id '%CHROM\_%POS\_%REF\_%ALT' "${OUTPUT//.vcf.gz/.vcf}" -Oz -o "$OUTPUT"
 
 rm "${OUTPUT//.vcf.gz/.vcf}"
 
