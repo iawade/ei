@@ -14,7 +14,7 @@ CLINVAR=${10}
 LOFTEE=${11}
 CADD=${12}
 
-. "/opt/software/applications/anaconda/3/etc/profile.d/conda.sh" && conda activate /data/scratch/DGE/DUDGE/PREDIGEN/iwade/SMARCA4_related/workflow/envs/SMARCA4_related
+module load BCFtools
 
 singularity exec  -B/data:/data "$VEP_SIF"  vep \
     --assembly "$ASSEMBLY" \

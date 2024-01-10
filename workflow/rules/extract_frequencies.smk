@@ -10,6 +10,8 @@ from typing import List
 # with open(config["dataset_name_files"]) as f1:
 #     dataset_name_files = [line.strip() for line in f1]
 
+# TODO : bcftools as a container? Doesn't work with conda - not urgent as can install bcftools from source code
+
 # Target Rule for Completion of Pipeline
 rule all:
     input:
@@ -87,24 +89,38 @@ rule normalisation:
         "{gene}_ukb_variants_paricipants_filtered_normalised.vcf.gz.tbi",
     params:
         gene=config["gene"],
+        singularity_sif=config["singularity_sif"],
         reference_genome_path=config["reference_genome_path"]
     shell:
         """
        sbatch --output="test_slurm/slurm-%x-%A_%a.out" --time=5-00:00:00 --cpus-per-task=2 \
-       ../../scripts/variant_normalisation_no_split.sh {input} {params.reference_genome_path} {output[0]}
+       ../../scripts/variant_normalisation.sh {input} {params.singularity_sif} {params.reference_genome_path} {output[0]}
+       """
+
+rule drop_genotypes:
+    input:
+        "{gene}_ukb_variants_paricipants_filtered_normalised.vcf.gz",
+    output:
+        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes.vcf.gz",
+        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes.vcf.gz.tbi",
+    params:
+        gene=config["gene"],
+    shell:
+        """
+       sbatch --output="test_slurm/slurm-%x-%A_%a.out" --time=5-00:00:00 \
+       ../../scripts/drop_genotypes.sh {input} {output[0]}
        """
 
 # Annotation
 rule annotation:
     input:
-        "{gene}_ukb_variants_paricipants_filtered_normalised.vcf.gz",
+        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes.vcf.gz",
     output:
-        "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz",
-        "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz.tbi",
+        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes_annotated.vcf.gz",
+        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes_annotated.vcf.gz.csi",
     params:
-        project=config["project"],
-        sbatch_job_name="--job-name=saige_prep_annotation_vep",
-        sbatch_params=config["sbatch_low_cpu"],
+        sbatch_job_name="--job-name=annotation_vep",
+        sbatch_params=config["sbatch_medium_cpu"],
         assembly=config["assembly"],
         fasta_reference=config["reference_genome_path"],
         vep_cache_version=config["vep_cache_version"],
@@ -120,6 +136,21 @@ rule annotation:
          {params.clinvar} {params.loftee} {params.cadd}
         """
 
+#rule to combine anno and norm info and header fields
+rule rejoin_genotypes:
+    input:
+        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes_annotated.vcf.gz",
+        "{gene}_ukb_variants_paricipants_filtered_normalised.vcf.gz",
+    output:
+        "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz",
+        "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz.tbi"
+    params:
+        gene=config["gene"],
+    shell:
+        """
+       sbatch --output="test_slurm/slurm-%x-%A_%a.out" --time=5-00:00:00 \
+       ../../scripts/combine_annotations_and_genotypes.sh {input[0]} {input[1]} {output[0]}
+       """
 
 # Catch all due to snakemake quirks re wildcards in target rules and input/output
 rule final_rule:
@@ -127,8 +158,10 @@ rule final_rule:
         "{gene}_ukb_variants.vcf.gz.tbi".format(gene=config["gene"]),
         "{gene}_ukb_variants_paricipants_filtered.vcf.gz.tbi".format(gene=config["gene"]),
         "{gene}_ukb_variants_paricipants_filtered_normalised.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes_annotated.vcf.gz.csi".format(gene=config["gene"]),
         "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz".format(gene=config["gene"]),
-        "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz.tbi".format(gene=config["gene"])
     output:
         "pipeline_complete.txt"
     shell:
