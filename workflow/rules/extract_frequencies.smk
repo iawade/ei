@@ -68,8 +68,8 @@ rule filter_participants:
     input:
         "{gene}_ukb_variants.vcf.gz",
     output:
-        "{gene}_ukb_variants_paricipants_filtered.vcf.gz",
-        "{gene}_ukb_variants_paricipants_filtered.vcf.gz.tbi",
+        "{gene}_ukb_variants_participants_filtered.vcf.gz",
+        "{gene}_ukb_variants_participants_filtered.vcf.gz.tbi",
     params:
         gene=config["gene"],
         participants_list=config["participants_list"]
@@ -81,10 +81,10 @@ rule filter_participants:
 
 rule normalisation:
     input:
-        "{gene}_ukb_variants_paricipants_filtered.vcf.gz",
+        "{gene}_ukb_variants_participants_filtered.vcf.gz",
     output:
-        "{gene}_ukb_variants_paricipants_filtered_normalised.vcf.gz",
-        "{gene}_ukb_variants_paricipants_filtered_normalised.vcf.gz.tbi",
+        "{gene}_ukb_variants_participants_filtered_normalised.vcf.gz",
+        "{gene}_ukb_variants_participants_filtered_normalised.vcf.gz.tbi",
     params:
         gene=config["gene"],
         singularity_sif=config["singularity_sif"],
@@ -95,12 +95,28 @@ rule normalisation:
        ../../scripts/variant_normalisation.sh {input} {params.singularity_sif} {params.reference_genome_path} {output[0]}
        """
 
+# TODO missingness - make cutoff customisable
+rule missingness_filter:
+    input:
+        "{gene}_ukb_variants_participants_filtered_normalised.vcf.gz",
+    output:
+        "{gene}_ukb_variants_participants_filtered_normalised_missingness_filter.vcf.gz",
+        "{gene}_ukb_variants_participants_filtered_normalised_missingness_filter.vcf.gz.tbi"
+    params:
+        missingness_cutoff=config["missingness_cutoff"],
+        sbatch_job_name = "--job-name=missingness_filter",
+        sbatch_params = config["sbatch_high_cpu_low_mem"],
+    shell:
+        """
+        sbatch {params.sbatch_job_name} {params.sbatch_params} ../../scripts/missingness_filter.sh {input} {params.missingness_cutoff} {output}
+        """
+
 rule drop_genotypes:
     input:
-        "{gene}_ukb_variants_paricipants_filtered_normalised.vcf.gz",
+        "{gene}_ukb_variants_participants_filtered_normalised_missingness_filter.vcf.gz",
     output:
-        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes.vcf.gz",
-        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes.vcf.gz.tbi",
+        "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes.vcf.gz",
+        "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes.vcf.gz.tbi",
     params:
         gene=config["gene"],
     shell:
@@ -112,10 +128,10 @@ rule drop_genotypes:
 # Annotation
 rule annotation:
     input:
-        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes.vcf.gz",
+        "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes.vcf.gz",
     output:
-        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes_annotated.vcf.gz",
-        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes_annotated.vcf.gz.csi",
+        "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes_annotated.vcf.gz",
+        "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes_annotated.vcf.gz.csi",
     params:
         sbatch_job_name="--job-name=annotation_vep",
         sbatch_params=config["sbatch_low_cpu"],
@@ -135,31 +151,71 @@ rule annotation:
         """
 
 #rule to combine anno and norm info and header fields
-rule rejoin_genotypes:
+# rule rejoin_genotypes:
+#     input:
+#         "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes_annotated.vcf.gz",
+#         "{gene}_ukb_variants_participants_filtered_normalised.vcf.gz",
+#     output:
+#         "{gene}_ukb_variants_participants_filtered_normalised_annotated.vcf.gz",
+#         "{gene}_ukb_variants_participants_filtered_normalised_annotated.vcf.gz.tbi"
+#     params:
+#         gene=config["gene"],
+#     shell:
+#         """
+#        sbatch --output="test_slurm/slurm-%x-%A_%a.out" --time=5-00:00:00 \
+#        ../../scripts/combine_annotations_and_genotypes.sh {input[0]} {input[1]} {output[0]}
+#        """
+
+rule remove_vcf_header:
     input:
-        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes_annotated.vcf.gz",
-        "{gene}_ukb_variants_paricipants_filtered_normalised.vcf.gz",
+        "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes_annotated.vcf.gz"
     output:
-        "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz",
-        "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz.tbi"
+        "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes_annotated.tsv"
     params:
         gene=config["gene"],
+        sbatch_job_name="--job-name=remove_header",
+        sbatch_params=config["sbatch_low_cpu"],
     shell:
         """
-       sbatch --output="test_slurm/slurm-%x-%A_%a.out" --time=5-00:00:00 \
-       ../../scripts/combine_annotations_and_genotypes.sh {input[0]} {input[1]} {output[0]}
-       """
+        sbatch {params.sbatch_job_name} {params.sbatch_params} ../../scripts/remove_header.sh {input} {output}
+        """
+
+rule identify_variants:
+    input:
+        "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes_annotated.tsv"
+    output:
+        "{gene}_variant_lists_ptv_only.tsv",
+        "{gene}_variant_lists_ptv_clinvar_one.tsv",
+        "{gene}_variant_lists_ptv_clinvar_two.tsv",
+        "{gene}_variant_lists_ptv_rare.tsv",
+    params:
+        gene=config["gene"],
+        clinvar_phenotypes=config["clinvar_phenotypes"],
+        maf_cutoff=config["maf_cutoff"]
+    shell:
+        """
+        Rscript ../../scripts/generate_variant_lists.R {input} {params.clinvar_phenotypes} {params.maf_cutoff} \
+        {output[0]} {output[1]} {output[2]} {output[3]} 
+        """
+
+#Break and new module
+# In that module add in
 
 # Catch all due to snakemake quirks re wildcards in target rules and input/output
 rule final_rule:
     input:
         "{gene}_ukb_variants.vcf.gz.tbi".format(gene=config["gene"]),
-        "{gene}_ukb_variants_paricipants_filtered.vcf.gz.tbi".format(gene=config["gene"]),
-        "{gene}_ukb_variants_paricipants_filtered_normalised.vcf.gz.tbi".format(gene=config["gene"]),
-        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes.vcf.gz.tbi".format(gene=config["gene"]),
-        "{gene}_ukb_variants_paricipants_filtered_normalised_drop_genotypes_annotated.vcf.gz.csi".format(gene=config["gene"]),
-        "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz".format(gene=config["gene"]),
-        "{gene}_ukb_variants_paricipants_filtered_normalised_annotated.vcf.gz.tbi".format(gene=config["gene"])
+        "{gene}_ukb_variants_participants_filtered.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_participants_filtered_normalised.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_participants_filtered_normalised_missingness_filter.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes_annotated.vcf.gz.csi".format(gene=config["gene"]),
+        #"{gene}_ukb_variants_participants_filtered_normalised_annotated.vcf.gz".format(gene=config["gene"]),
+        #"{gene}_ukb_variants_participants_filtered_normalised_annotated.vcf.gz.tbi".format(gene=config["gene"])
+        "{gene}_variant_lists_ptv_only.tsv".format(gene=config["gene"]),
+        "{gene}_variant_lists_ptv_clinvar_one.tsv".format(gene=config["gene"]),
+        "{gene}_variant_lists_ptv_clinvar_two.tsv".format(gene=config["gene"]),
+        "{gene}_variant_lists_ptv_rare.tsv".format(gene=config["gene"]),
     output:
         "pipeline_complete.txt"
     shell:
