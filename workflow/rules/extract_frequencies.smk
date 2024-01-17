@@ -13,7 +13,24 @@ from typing import List
 # Target Rule for Completion of Pipeline
 rule all:
     input:
+        "{gene}_ukb_variants.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_participants_filtered.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_participants_filtered_normalised.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_participants_filtered_normalised_missingness_filter.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes.vcf.gz.tbi".format(gene=config["gene"]),
+        "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes_annotated.vcf.gz.csi".format(gene=config["gene"]),
+        #"{gene}_ukb_variants_participants_filtered_normalised_annotated.vcf.gz".format(gene=config["gene"]),
+        #"{gene}_ukb_variants_participants_filtered_normalised_annotated.vcf.gz.tbi".format(gene=config["gene"])
+        "{gene}_variant_lists_ptv_only.tsv".format(gene=config["gene"]),
+        "{gene}_variant_lists_ptv_clinvar_one.tsv".format(gene=config["gene"]),
+        "{gene}_variant_lists_ptv_clinvar_two.tsv".format(gene=config["gene"]),
+        "{gene}_variant_lists_rare.tsv".format(gene=config["gene"]),
+        expand("{gene}_ukb_variants_participants_filtered_normalised_{variant_tranche}.vcf.gz", gene=config["gene"], variant_tranche=glob_wildcards("{gene}_variant_lists_{variant_tranche}.tsv").variant_tranche),
+        expand("{gene}_ukb_variants_participants_filtered_normalised_{variant_tranche}.vcf.gz.tbi", gene=config["gene"], variant_tranche=glob_wildcards("{gene}_variant_lists_{variant_tranche}.tsv").variant_tranche),
+    output:
         "pipeline_complete.txt"
+    shell:
+        "touch {output}"
 
 # Get Regions
 rule biomart_extract:
@@ -95,7 +112,6 @@ rule normalisation:
        ../../scripts/variant_normalisation.sh {input} {params.singularity_sif} {params.reference_genome_path} {output[0]}
        """
 
-# TODO missingness - make cutoff customisable
 rule missingness_filter:
     input:
         "{gene}_ukb_variants_participants_filtered_normalised.vcf.gz",
@@ -187,7 +203,7 @@ rule identify_variants:
         "{gene}_variant_lists_ptv_only.tsv",
         "{gene}_variant_lists_ptv_clinvar_one.tsv",
         "{gene}_variant_lists_ptv_clinvar_two.tsv",
-        "{gene}_variant_lists_ptv_rare.tsv",
+        "{gene}_variant_lists_rare.tsv",
     params:
         gene=config["gene"],
         clinvar_phenotypes=config["clinvar_phenotypes"],
@@ -198,25 +214,20 @@ rule identify_variants:
         {output[0]} {output[1]} {output[2]} {output[3]} 
         """
 
-#Break and new module
-# In that module add in
-
-# Catch all due to snakemake quirks re wildcards in target rules and input/output
-rule final_rule:
+# TODO investigate why pipeline doesn't run this job if do from start
+rule filter_variants:
     input:
-        "{gene}_ukb_variants.vcf.gz.tbi".format(gene=config["gene"]),
-        "{gene}_ukb_variants_participants_filtered.vcf.gz.tbi".format(gene=config["gene"]),
-        "{gene}_ukb_variants_participants_filtered_normalised.vcf.gz.tbi".format(gene=config["gene"]),
-        "{gene}_ukb_variants_participants_filtered_normalised_missingness_filter.vcf.gz.tbi".format(gene=config["gene"]),
-        "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes.vcf.gz.tbi".format(gene=config["gene"]),
-        "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes_annotated.vcf.gz.csi".format(gene=config["gene"]),
-        #"{gene}_ukb_variants_participants_filtered_normalised_annotated.vcf.gz".format(gene=config["gene"]),
-        #"{gene}_ukb_variants_participants_filtered_normalised_annotated.vcf.gz.tbi".format(gene=config["gene"])
-        "{gene}_variant_lists_ptv_only.tsv".format(gene=config["gene"]),
-        "{gene}_variant_lists_ptv_clinvar_one.tsv".format(gene=config["gene"]),
-        "{gene}_variant_lists_ptv_clinvar_two.tsv".format(gene=config["gene"]),
-        "{gene}_variant_lists_ptv_rare.tsv".format(gene=config["gene"]),
+        "{gene}_ukb_variants_participants_filtered_normalised_missingness_filter.vcf.gz",
+        "{gene}_variant_lists_{variant_tranche}.tsv"
     output:
-        "pipeline_complete.txt"
+        "{gene}_ukb_variants_participants_filtered_normalised_{variant_tranche}.vcf.gz",
+        "{gene}_ukb_variants_participants_filtered_normalised_{variant_tranche}.vcf.gz.tbi"
+    params:
+        gene = config["gene"],
+        sbatch_job_name="--job-name=filter_variants",
+        sbatch_params=config["sbatch_low_cpu"],
     shell:
-        "touch {output}"
+        """
+        sbatch {params.sbatch_job_name} {params.sbatch_params} ../../scripts/filter_variants.sh \
+        {input[0]} {input[1]} {output}
+        """
