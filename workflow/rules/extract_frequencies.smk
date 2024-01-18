@@ -19,14 +19,12 @@ rule all:
         "{gene}_ukb_variants_participants_filtered_normalised_missingness_filter.vcf.gz.tbi".format(gene=config["gene"]),
         "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes.vcf.gz.tbi".format(gene=config["gene"]),
         "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes_annotated.vcf.gz.csi".format(gene=config["gene"]),
-        #"{gene}_ukb_variants_participants_filtered_normalised_annotated.vcf.gz".format(gene=config["gene"]),
-        #"{gene}_ukb_variants_participants_filtered_normalised_annotated.vcf.gz.tbi".format(gene=config["gene"])
         "{gene}_variant_lists_ptv_only.tsv".format(gene=config["gene"]),
         "{gene}_variant_lists_ptv_clinvar_one.tsv".format(gene=config["gene"]),
         "{gene}_variant_lists_ptv_clinvar_two.tsv".format(gene=config["gene"]),
         "{gene}_variant_lists_rare.tsv".format(gene=config["gene"]),
-        expand("{gene}_ukb_variants_participants_filtered_normalised_{variant_tranche}.vcf.gz", gene=config["gene"], variant_tranche=glob_wildcards("{gene}_variant_lists_{variant_tranche}.tsv").variant_tranche),
         expand("{gene}_ukb_variants_participants_filtered_normalised_{variant_tranche}.vcf.gz.tbi", gene=config["gene"], variant_tranche=glob_wildcards("{gene}_variant_lists_{variant_tranche}.tsv").variant_tranche),
+        expand("{gene}_ukb_{variant_tranche}_tally.tsv", gene=config["gene"], variant_tranche=glob_wildcards("{gene}_variant_lists_{variant_tranche}.tsv").variant_tranche),
     output:
         "pipeline_complete.txt"
     shell:
@@ -166,22 +164,6 @@ rule annotation:
          {params.clinvar} {params.loftee} {params.cadd}
         """
 
-#rule to combine anno and norm info and header fields
-# rule rejoin_genotypes:
-#     input:
-#         "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes_annotated.vcf.gz",
-#         "{gene}_ukb_variants_participants_filtered_normalised.vcf.gz",
-#     output:
-#         "{gene}_ukb_variants_participants_filtered_normalised_annotated.vcf.gz",
-#         "{gene}_ukb_variants_participants_filtered_normalised_annotated.vcf.gz.tbi"
-#     params:
-#         gene=config["gene"],
-#     shell:
-#         """
-#        sbatch --output="test_slurm/slurm-%x-%A_%a.out" --time=5-00:00:00 \
-#        ../../scripts/combine_annotations_and_genotypes.sh {input[0]} {input[1]} {output[0]}
-#        """
-
 rule remove_vcf_header:
     input:
         "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes_annotated.vcf.gz"
@@ -214,7 +196,6 @@ rule identify_variants:
         {output[0]} {output[1]} {output[2]} {output[3]} 
         """
 
-# TODO investigate why pipeline doesn't run this job if do from start
 rule filter_variants:
     input:
         "{gene}_ukb_variants_participants_filtered_normalised_missingness_filter.vcf.gz",
@@ -230,4 +211,18 @@ rule filter_variants:
         """
         sbatch {params.sbatch_job_name} {params.sbatch_params} ../../scripts/filter_variants.sh \
         {input[0]} {input[1]} {output}
+        """
+
+rule tally_variants:
+    input:
+        "{gene}_ukb_variants_participants_filtered_normalised_{variant_tranche}.vcf.gz"
+    output:
+        "{gene}_ukb_{variant_tranche}_tally.tsv"
+    params:
+        gene = config["gene"]
+    resources:
+        mem_mb=8000
+    shell:
+        """
+        python ../../scripts/tally_variants.py {input} {output}
         """
