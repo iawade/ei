@@ -196,6 +196,11 @@ rule identify_variants:
         {output[0]} {output[1]} {output[2]} {output[3]} 
         """
 
+# TODO rule whitelist/blacklist PV's
+# Can test with some mad eup ones
+# Filter needs to not run an error if there's an variant not present from white/balcklist and actual variant set
+# Careful of double negatives: we'll go for whitelisted plof/PTV ; and blacklist missense
+
 rule filter_variants:
     input:
         "{gene}_ukb_variants_participants_filtered_normalised_missingness_filter.vcf.gz",
@@ -226,3 +231,5 @@ rule tally_variants:
         """
         python ../../scripts/tally_variants.py {input} {output}
         """
+
+# Get cancer info and Sex
