@@ -69,8 +69,14 @@ variant_data <- fread(INPUT) %>%
         ptv_variants = as.integer(loftee == "HC"),
         ptv_clinvar_1 = as.integer(loftee == "HC" | (any(str_detect(clndn, regex(paste(relevant_clndn, collapse = "|"), ignore_case = TRUE))) & (grepl("Pathogenic", clinsig) | grepl("Likely_pathogenic", clinsig)) & clinvar_star > 0)),
         ptv_clinvar_2 = as.integer(loftee == "HC" | (any(str_detect(clndn, regex(paste(relevant_clndn, collapse = "|"), ignore_case = TRUE))) & (grepl("Pathogenic", clinsig) | grepl("Likely_pathogenic", clinsig)) & clinvar_star > 1)),
-        rare = as.integer(ukb_af_eur_unrelated < as.numeric(AF_CUTOFF) & !grepl("Benign|Likely_benign", clinsig))
+        rare = (as.integer(loftee == "HC" | (any(str_detect(clndn, regex(paste(relevant_clndn, collapse = "|"), ignore_case = TRUE))) & (grepl("Pathogenic", clinsig) | grepl("Likely_pathogenic", clinsig)) & clinvar_star > 1))) | (as.integer(ukb_af_eur_unrelated < as.numeric(AF_CUTOFF) & !grepl("Benign|Likely_benign", clinsig)))
     )
+
+# TODO add variant white/black - lists
+## Was going to feed it into R - not necessary because none in variant blacklist - missense that need to be annotated as pathogenic
+## Whitelist can be done upfront in unix - because it's a case of removing from analysis
+#c.3951+2T>C which == chr19   11034202        chr19_11034202_T_C      T       C
+
 
 # Separate out variant tranches
 separate_variants <- function(data, variant_tranche) {

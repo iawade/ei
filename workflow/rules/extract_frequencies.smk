@@ -1,15 +1,5 @@
 # [TITLE]]
 
-from typing import List
-
-# with open(config["datasets"]) as f:
-#     datasets = [line.strip() for line in f]
-#
-# config["datasets"] = datasets
-#
-# with open(config["dataset_name_files"]) as f1:
-#     dataset_name_files = [line.strip() for line in f1]
-
 # Target Rule for Completion of Pipeline
 rule all:
     input:
@@ -25,6 +15,8 @@ rule all:
         "{gene}_variant_lists_rare.tsv".format(gene=config["gene"]),
         expand("{gene}_ukb_variants_participants_filtered_normalised_{variant_tranche}.vcf.gz.tbi", gene=config["gene"], variant_tranche=glob_wildcards("{gene}_variant_lists_{variant_tranche}.tsv").variant_tranche),
         expand("{gene}_ukb_{variant_tranche}_tally.tsv", gene=config["gene"], variant_tranche=glob_wildcards("{gene}_variant_lists_{variant_tranche}.tsv").variant_tranche),
+        expand("{gene}_ukb_{variant_tranche}_carriers_phenotypic_info.tsv", gene=config["gene"], variant_tranche=glob_wildcards("{gene}_variant_lists_{variant_tranche}.tsv").variant_tranche),
+        expand("{gene}_ukb_{variant_tranche}_odds_ratios.tsv", gene=config["gene"], variant_tranche=glob_wildcards("{gene}_variant_lists_{variant_tranche}.tsv").variant_tranche),
     output:
         "pipeline_complete.txt"
     shell:
@@ -197,8 +189,7 @@ rule identify_variants:
         """
 
 # TODO rule whitelist/blacklist PV's
-# Can test with some mad eup ones
-# Filter needs to not run an error if there's an variant not present from white/balcklist and actual variant set
+# Filter needs to not run an error if there's an variant not present from white/blacklist and actual variant set
 # Careful of double negatives: we'll go for whitelisted plof/PTV ; and blacklist missense
 
 rule filter_variants:
@@ -232,4 +223,21 @@ rule tally_variants:
         python ../../scripts/tally_variants.py {input} {output}
         """
 
-# Get cancer info and Sex
+rule generate_odds_ratios:
+    input:
+        "{gene}_ukb_{variant_tranche}_tally.tsv"
+    output:
+        "{gene}_ukb_{variant_tranche}_carriers_phenotypic_info.tsv",
+        "{gene}_ukb_{variant_tranche}_odds_ratios.tsv",
+    params:
+        gene = config["gene"],
+        phenotype_information = config["phenotypic_information"]
+    resources:
+        mem_mb=8000
+    shell:
+        """
+        sbatch -J {wildcards.gene}_{wildcards.variant_tranche}_odds_ratios \
+            -o test_slurm/{wildcards.gene}_{wildcards.variant_tranche}_odds_ratios.out \
+            -e test_slurm/{wildcards.gene}_{wildcards.variant_tranche}_odds_ratios.err \
+            --wrap='Rscript ../../scripts/generate_odds_ratios.R {input} {params.phenotype_information} {output[0]} {output[1]}' 
+        """
