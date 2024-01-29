@@ -188,7 +188,7 @@ rule identify_variants:
         maf_cutoff=config["maf_cutoff"]
     shell:
         """
-        Rscript ../../scripts/generate_variant_lists.R {input} {params.clinvar_phenotypes} {params.maf_cutoff} \
+        Rscript ../../scripts/generate_variant_lists.R {input} {params.gene} {params.clinvar_phenotypes} {params.maf_cutoff} \
         {output[0]} {output[1]} {output[2]} {output[3]} {output[4]} {output[5]}
         """
 
@@ -213,6 +213,7 @@ rule filter_variants:
         {input[0]} {input[1]} {output}
         """
 
+# TODO need to add some kind of int/mv command into sbatch wrapper so OR script doesn't start prematurely
 rule tally_variants:
     input:
         "{gene}_ukb_variants_participants_filtered_normalised_{variant_tranche}.vcf.gz"
@@ -224,7 +225,9 @@ rule tally_variants:
         mem_mb=8000
     shell:
         """
-        python ../../scripts/tally_variants.py {input} {output}
+        sbatch -J {wildcards.gene}_{wildcards.variant_tranche}_tallies \
+            -o test_slurm/{wildcards.gene}_{wildcards.variant_tranche}_tallies.out \
+            --wrap='python ../../scripts/tally_variants.py {input} {output}_int && mv {output}_int {output}' 
         """
 
 rule generate_odds_ratios:

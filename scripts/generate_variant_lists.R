@@ -8,14 +8,15 @@ library(tidyverse)
 args <- commandArgs(trailingOnly = TRUE)
 
 INPUT <- args[1]
-CLNDN <- args[2]
-AF_CUTOFF <- args[3]
-PTV_OUTPUT <- args[4]
-PTV_CLINVAR_1_OUTPUT <- args[5]
-PTV_CLINVAR_2_OUTPUT <- args[6]
-RARE_OUTPUT <- args[7]
-PTV_CLINVAR_1_RARE_OUTPUT <- args[8]
-PTV_CLINVAR_2_RARE_OUTPUT <- args[9]
+GENE <- args[2]
+CLNDN <- args[3]
+AF_CUTOFF <- args[4]
+PTV_OUTPUT <- args[5]
+PTV_CLINVAR_1_OUTPUT <- args[6]
+PTV_CLINVAR_2_OUTPUT <- args[7]
+RARE_OUTPUT <- args[8]
+PTV_CLINVAR_1_RARE_OUTPUT <- args[9]
+PTV_CLINVAR_2_RARE_OUTPUT <- args[10]
 
 # Read in clinvar phenotypes as vector
 relevant_clndn <- readLines(CLNDN)
@@ -41,9 +42,10 @@ variant_data <- fread(INPUT) %>%
         INFO_1 = `...1`
     ) %>%
     select(-contains("...")) %>%
+    filter(gene == GENE) %>%
 
     ## Obtain allele frequency in filtered population
-    ### Not flexible - Only really for European ancesrty and unrelated
+    ### Not flexible - Only really for European ancestry and unrelated
     mutate(INFO_1_split = str_split(INFO_1, ";")) %>%
     tidytable::unnest_wider(INFO_1_split) %>%
     rename(

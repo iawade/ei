@@ -29,4 +29,4 @@ mv "${TARGET_INTERVALS_TSV}_combined.vcf.gz" "$OUTPUT"
 mv "${TARGET_INTERVALS_TSV}"_combined.vcf.gz.tbi "$OUTPUT".tbi
 
 # shellcheck disable=SC2035
-rm *_matched_lines* comment_lines_*
+rm "comment_lines_${TARGET_INTERVALS_TSV}.txt" "${TARGET_INTERVALS_TSV}_matched_lines.txt"
