@@ -14,6 +14,8 @@ PTV_OUTPUT <- args[4]
 PTV_CLINVAR_1_OUTPUT <- args[5]
 PTV_CLINVAR_2_OUTPUT <- args[6]
 RARE_OUTPUT <- args[7]
+PTV_CLINVAR_1_RARE_OUTPUT <- args[8]
+PTV_CLINVAR_2_RARE_OUTPUT <- args[9]
 
 # Read in clinvar phenotypes as vector
 relevant_clndn <- readLines(CLNDN)
@@ -69,7 +71,7 @@ variant_data <- fread(INPUT) %>%
         ptv_variants = as.integer(loftee == "HC"),
         ptv_clinvar_1 = as.integer(loftee == "HC" | (any(str_detect(clndn, regex(paste(relevant_clndn, collapse = "|"), ignore_case = TRUE))) & (grepl("Pathogenic", clinsig) | grepl("Likely_pathogenic", clinsig)) & clinvar_star > 0)),
         ptv_clinvar_2 = as.integer(loftee == "HC" | (any(str_detect(clndn, regex(paste(relevant_clndn, collapse = "|"), ignore_case = TRUE))) & (grepl("Pathogenic", clinsig) | grepl("Likely_pathogenic", clinsig)) & clinvar_star > 1)),
-        rare = (as.integer(loftee == "HC" | (any(str_detect(clndn, regex(paste(relevant_clndn, collapse = "|"), ignore_case = TRUE))) & (grepl("Pathogenic", clinsig) | grepl("Likely_pathogenic", clinsig)) & clinvar_star > 1))) | (as.integer(ukb_af_eur_unrelated < as.numeric(AF_CUTOFF) & !grepl("Benign|Likely_benign", clinsig)))
+        rare = (as.integer(ukb_af_eur_unrelated < as.numeric(AF_CUTOFF) & !grepl("Benign|Likely_benign", clinsig)))
     )
 
 # TODO add variant white/black - lists
@@ -86,10 +88,20 @@ separate_variants <- function(data, variant_tranche) {
     return(result)
 }
 
+separate_variants_two_cats <- function(data, variant_tranche_1, variant_tranche_2) {
+    result <- data %>%
+        filter(!!sym(variant_tranche_1) == 1  | !!sym(variant_tranche_2) == 1) %>%
+        select(-ptv_variants, -ptv_clinvar_1, -ptv_clinvar_2, -rare)
+    return(result)
+}
+
 ptv_variants <- separate_variants(variant_data, "ptv_variants")
 ptv_clinvar_1 <- separate_variants(variant_data, "ptv_clinvar_1")
 ptv_clinvar_2 <- separate_variants(variant_data, "ptv_clinvar_2")
 rare <- separate_variants(variant_data, "rare")
+
+ptv_clinvar_1_rare <- separate_variants_two_cats(variant_data, "ptv_clinvar_1", "rare")
+ptv_clinvar_2_rare <- separate_variants_two_cats(variant_data, "ptv_clinvar_2", "rare")
 
 # Write output tables
 write_data <- function(data, output_name){
@@ -100,3 +112,5 @@ write_data(ptv_variants, PTV_OUTPUT)
 write_data(ptv_clinvar_1, PTV_CLINVAR_1_OUTPUT)
 write_data(ptv_clinvar_2, PTV_CLINVAR_2_OUTPUT)
 write_data(rare, RARE_OUTPUT)
+write_data(ptv_clinvar_1_rare, PTV_CLINVAR_1_RARE_OUTPUT)
+write_data(ptv_clinvar_2_rare, PTV_CLINVAR_2_RARE_OUTPUT)

@@ -13,6 +13,8 @@ rule all:
         "{gene}_variant_lists_ptv_clinvar_one.tsv".format(gene=config["gene"]),
         "{gene}_variant_lists_ptv_clinvar_two.tsv".format(gene=config["gene"]),
         "{gene}_variant_lists_rare.tsv".format(gene=config["gene"]),
+        "{gene}_variant_lists_ptv_clinvar_one_rare.tsv".format(gene=config["gene"]),
+        "{gene}_variant_lists_ptv_clinvar_two_rare.tsv".format(gene=config["gene"]),
         expand("{gene}_ukb_variants_participants_filtered_normalised_{variant_tranche}.vcf.gz.tbi", gene=config["gene"], variant_tranche=glob_wildcards("{gene}_variant_lists_{variant_tranche}.tsv").variant_tranche),
         expand("{gene}_ukb_{variant_tranche}_tally.tsv", gene=config["gene"], variant_tranche=glob_wildcards("{gene}_variant_lists_{variant_tranche}.tsv").variant_tranche),
         expand("{gene}_ukb_{variant_tranche}_carriers_phenotypic_info.tsv", gene=config["gene"], variant_tranche=glob_wildcards("{gene}_variant_lists_{variant_tranche}.tsv").variant_tranche),
@@ -178,6 +180,8 @@ rule identify_variants:
         "{gene}_variant_lists_ptv_clinvar_one.tsv",
         "{gene}_variant_lists_ptv_clinvar_two.tsv",
         "{gene}_variant_lists_rare.tsv",
+        "{gene}_variant_lists_ptv_clinvar_one_rare.tsv",
+        "{gene}_variant_lists_ptv_clinvar_two_rare.tsv",
     params:
         gene=config["gene"],
         clinvar_phenotypes=config["clinvar_phenotypes"],
@@ -185,12 +189,12 @@ rule identify_variants:
     shell:
         """
         Rscript ../../scripts/generate_variant_lists.R {input} {params.clinvar_phenotypes} {params.maf_cutoff} \
-        {output[0]} {output[1]} {output[2]} {output[3]} 
+        {output[0]} {output[1]} {output[2]} {output[3]} {output[4]} {output[5]}
         """
 
-# TODO rule whitelist/blacklist PV's
-# Filter needs to not run an error if there's an variant not present from white/blacklist and actual variant set
-# Careful of double negatives: we'll go for whitelisted plof/PTV ; and blacklist missense
+# Whitelist/blacklist PV's
+# This is quite specific so leaving as a manual break in pipeline
+# I.E. run --until identify_variants and then run my whitelisting script manually and then resume
 
 rule filter_variants:
     input:
