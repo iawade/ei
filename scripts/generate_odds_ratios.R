@@ -19,7 +19,7 @@ munged_phenotype_data <- fread(INPUT_PHENOTYPES)
 # Add age ranges
 tally_phenotype_union <- left_join(tally_data, munged_phenotype_data) %>%
     mutate(age_range = cut(censored_age, breaks = c(40, 50, 60, 70, 80, 90),
-                           labels = c("40-49", "50-59", "60-69", "70-79", "80-89"),
+                           labels = c("40-49", "40-59", "40-69", "40-79", "40-89"),
                            include.lowest = TRUE, right = FALSE))
 
 # Transform and output variant carriers
@@ -30,9 +30,11 @@ variant_carrier_output <- tally_phenotype_union %>%
 fwrite(variant_carrier_output, OUTPUT_CARRIERS, sep = "\t")
 
 # Calculate odds ratios
-## TODO Fisher's test
-## Could use functions so DNR code
+## Code could be better
 or_table <- tally_phenotype_union %>%
+
+    ## Cumulative totals and odds
+    ### Has to be a simpler way of summarising into cumulative totals
     group_by(age_range) %>%
     summarise(
         total_females = sum(sex == "Female"),
@@ -40,6 +42,15 @@ or_table <- tally_phenotype_union %>%
         total_males = sum(sex == "Male"),
         male_variant_carriers = sum(sex == "Male" & non_homref_count > 0)
     ) %>%
+    ungroup() %>%
+    arrange(age_range) %>%
+    mutate(
+        total_females = cumsum(total_females),
+        female_variant_carriers = cumsum(female_variant_carriers),
+        total_males = cumsum(total_males),
+        male_variant_carriers = cumsum(male_variant_carriers)
+    ) %>%
+
     mutate(
         female_pv_odds = female_variant_carriers /
             ( total_females - female_variant_carriers ),
@@ -48,7 +59,6 @@ or_table <- tally_phenotype_union %>%
         or_male_to_female = case_when(
             female_variant_carriers > 0 & male_variant_carriers > 0
             ~ male_pv_odds / female_pv_odds,
-            ## Haldane correction if zeros
             TRUE
             ~ ((male_variant_carriers + 0.5) /
                    ((total_males + 0.5) - (male_variant_carriers + 0.5))) /
@@ -56,7 +66,8 @@ or_table <- tally_phenotype_union %>%
                      ((total_females + 0.5) - (female_variant_carriers + 0.5)))
         )
     ) %>%
-    ## Confidence intervals, including Haldane correction if needed
+
+    ## CI's
     mutate(
         lower_95_ci = case_when(
             female_variant_carriers > 0 & male_variant_carriers > 0
@@ -83,8 +94,7 @@ or_table <- tally_phenotype_union %>%
             ))
         )
     ) %>%
-
-    ## Test significance
+    ## Test for significance
     rowwise() %>%
     mutate(
         fisher_p_value = case_when(
@@ -96,71 +106,16 @@ or_table <- tally_phenotype_union %>%
                                    male_variant_carriers + 0.5, total_males - male_variant_carriers + 0.5), nrow = 2))$p.value
         )
     ) %>%
-    ungroup() %>%
-    ## Repeat for cumulative totals and odds
-    arrange(age_range) %>%
     mutate(
-        cumulative_total_females = cumsum(total_females),
-        cumulative_female_variant_carriers = cumsum(female_variant_carriers),
-        cumulative_total_males = cumsum(total_males),
-        cumulative_male_variant_carriers = cumsum(male_variant_carriers)
-    ) %>%
-    mutate(
-        cumulative_female_pv_odds = cumulative_female_variant_carriers /
-            ( cumulative_total_females - cumulative_female_variant_carriers ),
-        cumulative_male_pv_odds = cumulative_male_variant_carriers /
-            ( cumulative_total_males - cumulative_male_variant_carriers ),
-        cumulative_or_male_to_female = case_when(
-            cumulative_female_variant_carriers > 0 & cumulative_male_variant_carriers > 0
-            ~ cumulative_male_pv_odds / cumulative_female_pv_odds,
+        chi_square_p_value = case_when(
+            female_variant_carriers > 0 & male_variant_carriers > 0
+            ~ chisq.test(matrix(c(female_variant_carriers, total_females - female_variant_carriers,
+                                   male_variant_carriers, total_males - male_variant_carriers), nrow = 2))$p.value,
             TRUE
-            ~ ((cumulative_male_variant_carriers + 0.5) /
-                   ((cumulative_total_males + 0.5) - (cumulative_male_variant_carriers + 0.5))) /
-                ((cumulative_female_variant_carriers + 0.5) /
-                     ((cumulative_total_females + 0.5) - (cumulative_female_variant_carriers + 0.5)))
-        )
-    ) %>%
-
-    ## Repeat CI's
-    mutate(
-        cumulative_lower_95_ci = case_when(
-            cumulative_female_variant_carriers > 0 & cumulative_male_variant_carriers > 0
-            ~ exp(log(cumulative_or_male_to_female) - qnorm(0.975) * sqrt(
-                1/cumulative_male_variant_carriers + 1/(cumulative_total_males - cumulative_male_variant_carriers) +
-                    1/cumulative_female_variant_carriers + 1/(cumulative_total_females - cumulative_female_variant_carriers)
-            )),
-            TRUE
-            ~ exp(log(cumulative_or_male_to_female) - qnorm(0.975) * sqrt(
-                1/(cumulative_male_variant_carriers + 0.5) + 1/((cumulative_total_males - cumulative_male_variant_carriers) + 0.5) +
-                    1/(cumulative_female_variant_carriers + 0.5) + 1/((cumulative_total_females - cumulative_female_variant_carriers) + 0.5)
-            ))
-        ),
-        cumulative_upper_95_ci = case_when(
-            cumulative_female_variant_carriers > 0 & cumulative_male_variant_carriers > 0
-            ~ exp(log(cumulative_or_male_to_female) + qnorm(0.975) * sqrt(
-                1/cumulative_male_variant_carriers + 1/(cumulative_total_males - cumulative_male_variant_carriers) +
-                    1/cumulative_female_variant_carriers + 1/(cumulative_total_females - cumulative_female_variant_carriers)
-            )),
-            TRUE
-            ~ exp(log(cumulative_or_male_to_female) + qnorm(0.975) * sqrt(
-                1/(cumulative_male_variant_carriers + 0.5) + 1/((cumulative_total_males - cumulative_male_variant_carriers) + 0.5) +
-                    1/(cumulative_female_variant_carriers + 0.5) + 1/((cumulative_total_females - cumulative_female_variant_carriers) + 0.5)
-            ))
-        )
-    ) %>%
-    ## Repeat test for significance
-    rowwise() %>%
-    mutate(
-        cumulative_fisher_p_value = case_when(
-            cumulative_female_variant_carriers > 0 & cumulative_male_variant_carriers > 0
-            ~ fisher.test(matrix(c(cumulative_female_variant_carriers, cumulative_total_females - cumulative_female_variant_carriers,
-                                   cumulative_male_variant_carriers, cumulative_total_males - cumulative_male_variant_carriers), nrow = 2))$p.value,
-            TRUE
-            ~ fisher.test(matrix(c(cumulative_female_variant_carriers + 0.5, cumulative_total_females - cumulative_female_variant_carriers + 0.5,
-                                   cumulative_male_variant_carriers + 0.5, cumulative_total_males - cumulative_male_variant_carriers + 0.5), nrow = 2))$p.value
+            ~ chisq.test(matrix(c(female_variant_carriers + 0.5, total_females - female_variant_carriers + 0.5,
+                                   male_variant_carriers + 0.5, total_males - male_variant_carriers + 0.5), nrow = 2))$p.value
         )
     )
-
 
 # Output Data
 fwrite(or_table, OUTPUT_ODDS_RATIOS, sep = "\t")
