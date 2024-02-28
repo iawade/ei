@@ -1,0 +1,15 @@
+# Config File for <X> Pipeline
+
+# Work Directory
+workdir: "/data/scratch/DGE/DUDGE/PREDIGEN/iwade/EI_testing"/project_data/"2024-02-28_alma_finding_var_carriers_test"
+
+# Cluster config
+cluster:
+    partition: "compute"
+    output: "test_slurm/slurm-%x-%A_%a.out"
+
+executor: slurm
+jobs: 100
+
+# <TITLE>
+<THING IN CONFIG>: <"THING">
