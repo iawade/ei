@@ -73,7 +73,7 @@ variant_data <- fread(INPUT) %>%
         ptv_variants = as.integer(loftee == "HC"),
         ptv_clinvar_1 = as.integer(loftee == "HC" | (any(str_detect(clndn, regex(paste(relevant_clndn, collapse = "|"), ignore_case = TRUE))) & (grepl("Pathogenic", clinsig) | grepl("Likely_pathogenic", clinsig)) & clinvar_star > 0)),
         ptv_clinvar_2 = as.integer(loftee == "HC" | (any(str_detect(clndn, regex(paste(relevant_clndn, collapse = "|"), ignore_case = TRUE))) & (grepl("Pathogenic", clinsig) | grepl("Likely_pathogenic", clinsig)) & clinvar_star > 1)),
-        rare = (as.integer(ukb_af_eur_unrelated < as.numeric(AF_CUTOFF) & !grepl("Benign|Likely_benign", clinsig)))
+        rare = (as.integer(ukb_af_eur_unrelated < as.numeric(AF_CUTOFF) & !grepl("Benign|Likely_benign", clinsig) & !grepl("synonymous", vep_var_type)))
     )
 
 # TODO add variant white/black - lists
