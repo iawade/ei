@@ -1,7 +1,7 @@
 # Config File for <X> Pipeline
 
 # Work Directory
-workdir: "/data/scratch/DGE/DUDGE/PREDIGEN/iwade/EI_testing"/project_data/"2024-02-28_alma_finding_var_carriers_test"
+workdir: "/data/scratch/DGE/DUDGE/PREDIGEN/iwade/EI_testing/project_data/2024-02-28_alma_finding_var_carriers_test"
 
 # Cluster config
 cluster:
@@ -11,5 +11,33 @@ cluster:
 executor: slurm
 jobs: 100
 
-# <TITLE>
-<THING IN CONFIG>: <"THING">
+# Gene and UKB Query
+gene: "gene_list.txt"
+chromosome_sizes: "/data/scratch/DGE/DUDGE/PREDIGEN/iwade/SMARCA4_related/reference_data/hg38.chrom.sizes"
+
+query_vcf: "/data/scratch/DGE/DUDGE/PREDIGEN/iwade/WES_pipeline/project_data/2023-10-31_mbc_ukbb/prep/MBC_ukbb_norm_ac0.vcf.gz"
+
+# Normalisation
+reference_genome_path: "/data/scratch/DGE/DUDGE/PREDIGEN/shared/ref_data/reference_genomes/GRCh38_decoy_hla.fa"
+singularity_sif: "/data/scratch/DGE/DUDGE/PREDIGEN/iwade/SMARCA4_related/workflow/envs/bcftools_latest.sif"
+
+## Annotation
+### Clinvar needs index, REVEL, LOFTEE and CADD all require plugins to be compiled
+assembly: "GRCh38"
+vep_cache_version: "110"
+revel: "/data/scratch/DGE/DUDGE/PREDIGEN/iwade/WES_pipeline/reference_data/new_tabbed_revel_grch38.tsv.gz"
+clinvar: "/data/scratch/DGE/DUDGE/PREDIGEN/iwade/WES_pipeline/reference_data/clinvar_20230626.vcf.gz"
+loftee: "loftee_path:/data/scratch/DGE/DUDGE/PREDIGEN/iwade/WES_pipeline/reference_data/loftee,human_ancestor_fa:/data/scratch/DGE/DUDGE/PREDIGEN/iwade/WES_pipeline/reference_data/human_ancestor.fa.gz,conservation_file:/data/scratch/DGE/DUDGE/PREDIGEN/iwade/WES_pipeline/reference_data/loftee.sql,gerp_bigwig:/data/scratch/DGE/DUDGE/PREDIGEN/iwade/WES_pipeline/reference_data/gerp_conservation_scores.homo_sapiens.GRCh38.bw"
+cadd: "/data/scratch/DGE/DUDGE/PREDIGEN/iwade/WES_pipeline/reference_data/cadd_v1.6/whole_genome_SNVs.tsv.gz"
+
+missingness_cutoff: 0.1
+
+# Obtain Variants
+## Run: bash ../../scripts/obtain_clinvar_phenotypes.sh <GENE> - (e.g. "SMARCA4") - then Manually Review Phenotypes
+clinvar_phenotypes: "SMARCA4_clinvar_phenotypes.txt"
+
+# Additional Slurm Options
+sbatch_high_cpu_low_mem: "--output=test_slurm/slurm-%x-%A_%a.out --time=5-00:00:00 --cpus-per-task=8 --mem-per-cpu=1000 --partition=compute"
+sbatch_high_cpu_high_mem: "--output=test_slurm/slurm-%x-%A_%a.out --time=5-00:00:00 --cpus-per-task=8 --mem-per-cpu=8000 --partition=compute"
+sbatch_medium_cpu: "--output=test_slurm/slurm-%x-%A_%a.out --time=5-00:00:00 --cpus-per-task=4 --mem-per-cpu=8000 --partition=compute"
+sbatch_low_cpu: "--output=test_slurm/slurm-%x-%A_%a.out --time=5-00:00:00 --cpus-per-task=1 --mem-per-cpu=8000 --partition=compute"
