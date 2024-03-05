@@ -9,7 +9,8 @@ rule all:
         "query_vcf_regions_filtered_normalised_missingness_filter.vcf.gz.tbi",
         "query_vcf_regions_filtered_normalised_missingness_filter_drop_genotypes.vcf.gz.tbi",
         "query_vcf_regions_filtered_normalised_missingness_filter_drop_genotypes_annotated.vcf.gz.csi",
-        "query_vcf_regions_filtered_normalised_missingness_filter_drop_genotypes_annotated.tsv",
+        "query_vcf_regions_filtered_normalised_missingness_filter_ptv_clinvar_2.vcf.gz.tbi",
+        "query_vcf_ptv_clinvar_2_tally.tsv"
     output:
         "pipeline_complete.txt"
     shell:
@@ -128,55 +129,45 @@ rule remove_vcf_header:
         sbatch {params.sbatch_job_name} {params.sbatch_params} ../../scripts/remove_header.sh {input} {output}
         """
 
-# rule identify_variants:
-#     input:
-#         "{gene}_ukb_variants_participants_filtered_normalised_drop_genotypes_annotated.tsv"
-#     output:
-#         "{gene}_variant_lists_ptv_only.tsv",
-#         "{gene}_variant_lists_ptv_clinvar_one.tsv",
-#         "{gene}_variant_lists_ptv_clinvar_two.tsv",
-#         "{gene}_variant_lists_rare.tsv",
-#         "{gene}_variant_lists_ptv_clinvar_one_rare.tsv",
-#         "{gene}_variant_lists_ptv_clinvar_two_rare.tsv",
-#     params:
-#         gene=config["gene"],
-#         clinvar_phenotypes=config["clinvar_phenotypes"],
-#         maf_cutoff=config["maf_cutoff"]
-#     shell:
-#         """
-#         Rscript ../../scripts/generate_variant_lists.R {input} {params.gene} {params.clinvar_phenotypes} {params.maf_cutoff} \
-#         {output[0]} {output[1]} {output[2]} {output[3]} {output[4]} {output[5]}
-#         """
-#
-# rule filter_variants:
-#     input:
-#         "{gene}_ukb_variants_participants_filtered_normalised_missingness_filter.vcf.gz",
-#         "{gene}_variant_lists_{variant_tranche}.tsv"
-#     output:
-#         "{gene}_ukb_variants_participants_filtered_normalised_{variant_tranche}.vcf.gz",
-#         "{gene}_ukb_variants_participants_filtered_normalised_{variant_tranche}.vcf.gz.tbi"
-#     params:
-#         gene = config["gene"],
-#         sbatch_job_name="--job-name=filter_variants",
-#         sbatch_params=config["sbatch_low_cpu"],
-#     shell:
-#         """
-#         sbatch {params.sbatch_job_name} {params.sbatch_params} ../../scripts/filter_variants.sh \
-#         {input[0]} {input[1]} {output}
-#         """
-#
-# rule tally_variants:
-#     input:
-#         "{gene}_ukb_variants_participants_filtered_normalised_{variant_tranche}.vcf.gz"
-#     output:
-#         "{gene}_ukb_{variant_tranche}_tally.tsv"
-#     params:
-#         gene = config["gene"]
-#     resources:
-#         mem_mb=8000
-#     shell:
-#         """
-#         sbatch -J {wildcards.gene}_{wildcards.variant_tranche}_tallies \
-#             -o test_slurm/{wildcards.gene}_{wildcards.variant_tranche}_tallies.out \
-#             --wrap='python ../../scripts/tally_variants.py {input} {output}_int && mv {output}_int {output}'
-#         """
+rule identify_variants:
+    input:
+        "query_vcf_regions_filtered_normalised_missingness_filter_drop_genotypes_annotated.tsv"
+    output:
+        "query_vcf_variant_lists_ptv_clinvar_two.tsv",
+    params:
+        gene=config["gene"]
+    shell:
+        """
+        Rscript ../../scripts/generate_variant_lists.R {input} {params.gene} {output[0]}
+        """
+
+rule filter_variants:
+    input:
+        "query_vcf_regions_filtered_normalised_missingness_filter.vcf.gz",
+        "query_vcf_variant_lists_ptv_clinvar_two.tsv",
+    output:
+        "query_vcf_regions_filtered_normalised_missingness_filter_ptv_clinvar_2.vcf.gz",
+        "query_vcf_regions_filtered_normalised_missingness_filter_ptv_clinvar_2.vcf.gz.tbi"
+    params:
+        gene = config["gene"],
+        sbatch_job_name="--job-name=filter_variants",
+        sbatch_params=config["sbatch_low_cpu"],
+    shell:
+        """
+        sbatch {params.sbatch_job_name} {params.sbatch_params} ../../scripts/filter_variants.sh \
+        {input[0]} {input[1]} {output[0]}
+        """
+
+rule tally_variants:
+    input:
+        "query_vcf_regions_filtered_normalised_missingness_filter_ptv_clinvar_2.vcf.gz",
+    output:
+        "query_vcf_ptv_clinvar_2_tally.tsv"
+    resources:
+        mem_mb=8000
+    shell:
+        """
+        sbatch -J tallies \
+            -o test_slurm/tallies.out \
+            --wrap='python ../../scripts/tally_variants.py {input} {output}_int && mv {output}_int {output}'
+        """

@@ -9,19 +9,12 @@ args <- commandArgs(trailingOnly = TRUE)
 
 INPUT <- args[1]
 GENE_LIST <- args[2]
-CLNDN <- args[3]
-AF_CUTOFF <- args[4]
-PTV_OUTPUT <- args[5]
-PTV_CLINVAR_1_OUTPUT <- args[6]
-PTV_CLINVAR_2_OUTPUT <- args[7]
-RARE_OUTPUT <- args[8]
-PTV_CLINVAR_1_RARE_OUTPUT <- args[9]
-PTV_CLINVAR_2_RARE_OUTPUT <- args[10]
+PTV_CLINVAR_2_OUTPUT <- args[3]
 
 gene_list <- readLines(GENE_LIST)
 
-# Read in clinvar phenotypes as vector
-relevant_clndn <- readLines(CLNDN)
+# # Read in clinvar phenotypes as vector
+# relevant_clndn <- readLines(CLNDN)
 
 # Process input data
 ## Read in Data
@@ -51,21 +44,21 @@ variant_data <- fread(INPUT) %>%
     mutate(INFO_1_split = str_split(INFO_1, ";")) %>%
     tidytable::unnest_wider(INFO_1_split) %>%
     rename(
-        ukb_af_total = `...1`,
-        ukb_ac_eur_unrelated = `...3`,
-        ukb_an_eur_unrelated = `...4`
+        query_af_total = `...1`,
+        query_ac_filtered = `...3`,
+        query_an_filtered = `...4`
     ) %>%
     select(-contains("..."), -INFO, -QUAL, -INFO_1) %>%
-    mutate(across(starts_with("ukb_"), ~str_extract(.x, "(?<==)\\S+"))) %>%
-    mutate(ukb_af_eur_unrelated =
-               as.numeric(ukb_ac_eur_unrelated) / as.numeric(ukb_an_eur_unrelated)) %>%
+    mutate(across(starts_with("query_"), ~str_extract(.x, "(?<==)\\S+"))) %>%
+    mutate(query_af_filtered =
+               as.numeric(query_ac_filtered) / as.numeric(query_an_filtered)) %>%
 
     ## Identify ClinVar review status
     mutate(clinvar_star = case_when(
         grepl("assertion", review_status, ignore.case = TRUE) ~ 0,
         grepl("multiple", review_status, ignore.case = TRUE) ~ 2,
         grepl("expert", review_status, ignore.case = TRUE) ~ 3,
-        grepl("practive", review_status, ignore.case = TRUE) ~ 4,
+        grepl("practice", review_status, ignore.case = TRUE) ~ 4,
         is.na(review_status) | review_status == "" ~ NA_real_,
         TRUE ~ 1
     )) %>%
@@ -73,9 +66,9 @@ variant_data <- fread(INPUT) %>%
     ## Identify variants for each tranche
     mutate(
         ptv_variants = as.integer(loftee == "HC"),
-        ptv_clinvar_1 = as.integer(loftee == "HC" | (any(str_detect(clndn, regex(paste(relevant_clndn, collapse = "|"), ignore_case = TRUE))) & (grepl("Pathogenic", clinsig) | grepl("Likely_pathogenic", clinsig)) & clinvar_star > 0)),
-        ptv_clinvar_2 = as.integer(loftee == "HC" | (any(str_detect(clndn, regex(paste(relevant_clndn, collapse = "|"), ignore_case = TRUE))) & (grepl("Pathogenic", clinsig) | grepl("Likely_pathogenic", clinsig)) & clinvar_star > 1)),
-        rare = (as.integer(ukb_af_eur_unrelated < as.numeric(AF_CUTOFF) & !grepl("Benign|Likely_benign", clinsig) & !grepl("synonymous", vep_var_type)))
+        ptv_clinvar_1 = as.integer(loftee == "HC" | (grepl("Pathogenic", clinsig) | grepl("Likely_pathogenic", clinsig)) & clinvar_star > 0),
+        ptv_clinvar_2 = as.integer(loftee == "HC" | (grepl("Pathogenic", clinsig) | grepl("Likely_pathogenic", clinsig)) & clinvar_star > 1),
+        rare = as.integer(query_af_filtered < as.numeric(0.005) & !grepl("Benign|Likely_benign", clinsig) & !grepl("synonymous", vep_var_type))
     )
 
 # Separate out variant tranches
