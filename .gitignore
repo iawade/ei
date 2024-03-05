@@ -17,4 +17,7 @@ workflow/envs/cache/
 workflow/envs/**
 .idea/
 !config/config_example.yaml
+!config/config.yaml
 !config/sample_config.yaml
+!project_data/2024-02-28_alma_finding_var_carriers_test/gene_list.txt
+!project_data/2024-02-28_alma_finding_var_carriers_test/snakemake_call.sh
