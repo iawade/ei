@@ -1,4 +1,3 @@
-project_data/
 reference_data/
 **/logs
 **/*vcf.gz
@@ -13,6 +12,7 @@ reference_data/
 **/*psam
 **/*yaml
 **/*sif
+**/*bed
 workflow/envs/cache/
 workflow/envs/**
 .idea/
@@ -21,3 +21,4 @@ workflow/envs/**
 !config/sample_config.yaml
 !project_data/2024-02-28_alma_finding_var_carriers_test/gene_list.txt
 !project_data/2024-02-28_alma_finding_var_carriers_test/snakemake_call.sh
+!project_data/2024-02-28_alma_finding_var_carriers_test/simpler_regions.txt
