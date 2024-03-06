@@ -1,4 +1,5 @@
 reference_data/
+project_data/*/.snakemake/
 **/logs
 **/*vcf.gz
 **/*vcf.gz.tbi
