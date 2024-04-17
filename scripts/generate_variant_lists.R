@@ -63,7 +63,7 @@ variant_data <- fread(INPUT) %>%
         grepl("assertion", review_status, ignore.case = TRUE) ~ 0,
         grepl("multiple", review_status, ignore.case = TRUE) ~ 2,
         grepl("expert", review_status, ignore.case = TRUE) ~ 3,
-        grepl("practive", review_status, ignore.case = TRUE) ~ 4,
+        grepl("practice", review_status, ignore.case = TRUE) ~ 4,
         is.na(review_status) | review_status == "" ~ NA_real_,
         TRUE ~ 1
     )) %>%

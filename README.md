@@ -1,5 +1,18 @@
 # SMARCA4_related
 
+## Setting up Project
+* Make running directories
+* Make/copy in snakemake calls
+    * Change path to config
+    * Change job name (optional) 
+* Create config
+    * Change work directory
+    * Change gene
+    * Change path to clinical phenotypes file
+* Make clinical annotations file
+    * bash ../../scripts/obtain_clinvar_phenotypes.sh <GENE>
+    * Select relevant phenotypes
+
 
 
 ## Getting started

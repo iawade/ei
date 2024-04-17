@@ -57,7 +57,6 @@ rule identify_pvcf_chunk:
         python ../../scripts/UKB_exome_file_cross-ref.py {input} {output} {params.pvcf_blocks}
         """
 
-# TODO : I'm not sure if this script could handle if pvcf_chunk > 1; Check and Fix
 rule extract_variants_and_download:
     input:
         "{gene}_processed_exons.bed",
@@ -213,7 +212,6 @@ rule filter_variants:
         {input[0]} {input[1]} {output}
         """
 
-# TODO need to add some kind of int/mv command into sbatch wrapper so OR script doesn't start prematurely
 rule tally_variants:
     input:
         "{gene}_ukb_variants_participants_filtered_normalised_{variant_tranche}.vcf.gz"
